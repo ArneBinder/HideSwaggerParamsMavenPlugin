@@ -29,11 +29,12 @@ import java.util.Iterator;
 import java.util.Scanner;
 
 /**
- * Goal which touches a timestamp file.
+ * Goal which deletes all JSONObjects with key->value pair: name->hiddenNameValue
+ * from a swagger description file.
  *
  * @goal hideparams
  *
- * @phase package
+ * @phase compile
  */
 @Mojo( name = "hideparams")
 public class HiderMojo
@@ -68,21 +69,17 @@ public class HiderMojo
         } catch (FileNotFoundException e) {
             throw new MojoExecutionException( "File not found: " + jsonfile, e );
         }
-
-
-
         JSONObject rootObject = new JSONObject(content);
 
         findHidden(rootObject);
 
         PrintWriter writer;
-        String outfile = "test.json";
         try {
             writer = new PrintWriter(jsonfile, "UTF-8");
         } catch (FileNotFoundException e) {
-            throw new MojoExecutionException( "FileNotFoundException: " + outfile, e );
+            throw new MojoExecutionException( "FileNotFoundException: " + jsonfile, e );
         } catch (UnsupportedEncodingException e) {
-            throw new MojoExecutionException( "UnsupportedEncodingException: " + outfile, e );
+            throw new MojoExecutionException( "UnsupportedEncodingException: " + jsonfile, e );
         }
         rootObject.write(writer);
         writer.close();
@@ -99,7 +96,7 @@ public class HiderMojo
                 String key = it.next();
                 try{
                     if (findHidden(node.getJSONObject(key))){
-                        getLog().info( "remove: "+key+" -> "+ node.getJSONObject(key).toString());
+                        //getLog().info( "remove: "+key+" -> "+ node.getJSONObject(key).toString());
                         node.remove(key);
                     }
                     handled = true;
