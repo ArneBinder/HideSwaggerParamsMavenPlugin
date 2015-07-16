@@ -2,8 +2,8 @@
 
 **usage**
 
-1. build package: execute maven package goal 
-2. integrate into maven repository: `mvn org.apache.maven.plugins:maven-install-plugin:2.5.2:install-file -Dfile=path\to\hide-swagger-params-maven-plugin-0.1-SNAPSHOT.jar`
+1. build this package: execute maven package goal 
+2. integrate into your local maven repository: `mvn org.apache.maven.plugins:maven-install-plugin:2.5.2:install-file -Dfile=path/to/hide-swagger-params-maven-plugin-0.1-SNAPSHOT.jar -DpomFile=path/to/pom.xml`
 3. integrate into your project:
 
 ```
