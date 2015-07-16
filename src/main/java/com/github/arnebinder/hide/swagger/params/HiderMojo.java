@@ -23,7 +23,6 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
-//import org.apache.maven.plugins.annotations.Parameter;
 
 import java.io.*;
 import java.util.Iterator;
@@ -51,7 +50,7 @@ public class HiderMojo
 {
 
     /**
-     * json file containing the swagger code.
+     * json file containing the input swagger code.
      * @parameter expression="${jsonfile}"
      *            default-value="target/doc/swagger-ui/swagger.json"
      */
@@ -59,26 +58,35 @@ public class HiderMojo
     // @Parameter( property = "hideparams.jsonfile", defaultValue = "target/doc/swagger-ui/swagger.json" )
 
     /**
-     * json file containing the swagger code.
+     * yaml file containing the output swagger code.
      * @parameter expression="${yamlfile}"
      *            default-value="target/doc/swagger-ui/swagger.yaml"
      */
     private File yamlfile;
 
     /**
-     * value of the name of the element to hide.
+     * name of the key of the element to hide.
      * @parameter expression="${excludeKey}"
      *            default-value="name"
      */
     private String excludeKey;
 
     /**
-     * value of the name of the element to hide.
+     * name of the value of the element to hide.
      * @parameter expression="${excludeValue}"
      *            default-value="HIDDEN"
      */
     private String excludeValue;
 
+    /**
+     * If true, the input json file will be modified.
+     * In particular it will have the same semantics as the yaml output.
+     * @parameter expression="${overwriteJSON}"
+     *            default-value="false"
+     */
+    private Boolean overwriteJSON;
+
+    @SuppressWarnings("unchecked")
     public void execute()
             throws MojoExecutionException
     {
@@ -88,7 +96,6 @@ public class HiderMojo
 
         ObjectMapper m = new ObjectMapper();
 
-        // can either use mapper.readTree(source), or mapper.readValue(source, JsonNode.class);
         JsonNode rootNode;
         try {
             rootNode = m.readTree(jsonfile);
@@ -97,7 +104,6 @@ public class HiderMojo
         }
 
         List<JsonNode> toDelete = rootNode.findParents(excludeKey);
-        //getLog().info( "found hiddden: \n"+toDelete );
         for(JsonNode node: toDelete){
             if(node.get(excludeKey).isTextual()) {
                 String value = node.get(excludeKey).asText();
@@ -109,24 +115,18 @@ public class HiderMojo
             }
         }
 
+
         Map<String,Object> data;
         try {
             data = m.readValue(jsonfile, Map.class);
             invoke(data);
-            //m.writeValue(jsonfile, data);
+            if(overwriteJSON) {
+                m.writeValue(jsonfile, data);
+            }
         } catch (IOException e) {
             throw new MojoExecutionException( "Could not read file: " + jsonfile, e );
         }
 
-
-        //getLog().info( "DATA:\n"+data.toString() );
-
-        /*Object bean = null;
-        try {
-            bean = m.treeToValue(rootNode, Object.class);
-        } catch (JsonProcessingException e) {
-            throw new MojoExecutionException( "Could not parse json: " + jsonfile, e );
-        }*/
         ObjectMapper ym = new ObjectMapper(new YAMLFactory());
         try {
             ym.writeValue(yamlfile, data);
@@ -134,57 +134,12 @@ public class HiderMojo
             throw new MojoExecutionException( "Could not write file: " + yamlfile, e );
         }
 
-
-        //////////////
-
-        /*String content;
-        try {
-            Scanner scanner = new Scanner(jsonfile);
-            content = scanner.useDelimiter("\\Z").next();
-            scanner.close();
-        } catch (FileNotFoundException e) {
-            throw new MojoExecutionException( "File not found: " + jsonfile, e );
-        }
-        JSONObject rootObject = new JSONObject(content);
-
-        findHidden(rootObject);
-
-        String prettyJSONString = rootObject.toString(2);
-        PrintWriter jsonWriter;
-        try {
-            jsonWriter = new PrintWriter(jsonfile, "UTF-8");
-        } catch (FileNotFoundException e) {
-            throw new MojoExecutionException( "FileNotFoundException: " + jsonfile, e );
-        } catch (UnsupportedEncodingException e) {
-            throw new MojoExecutionException( "UnsupportedEncodingException: " + jsonfile, e );
-        }
-        jsonWriter.write(prettyJSONString);
-        //rootObject.write(jsonWriter);
-        jsonWriter.close();
-
-        Yaml yaml = new Yaml();
-*/
-        /*
-        // mapping
-        Map<String,Object> map = (Map<String, Object>) yaml.load(prettyJSONString);
-        String output = yaml.dump(map);
-        PrintWriter yamlWriter;
-        try {
-            yamlWriter = new PrintWriter(yamlfile, "UTF-8");
-        } catch (FileNotFoundException e) {
-            throw new MojoExecutionException( "FileNotFoundException: " + yamlfile, e );
-        } catch (UnsupportedEncodingException e) {
-            throw new MojoExecutionException( "UnsupportedEncodingException: " + yamlfile, e );
-        }
-        yamlWriter.write(prettyJSONString);
-        //rootObject.write(jsonWriter);
-        yamlWriter.close();
-        */
-
         getLog().info( "Hiding succeeded." );
     }
 
 
+
+    @SuppressWarnings("unchecked")
     private void invoke( Object object) {
         Iterator<String> it;
         if(object instanceof Map) {

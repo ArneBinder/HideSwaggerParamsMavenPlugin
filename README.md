@@ -18,6 +18,7 @@
 				  <yamlfile>path/to/yaml/output(default: target/doc/swagger-ui/swagger.yaml)</yamlfile>
 				  <excludeKey>name-of-element-key-to-hide(default: name)</excludeKey>
 				  <excludeValue>name-of-element-value-to-hide(default: HIDDEN)</excludeValue>
+				  <overwriteJSON>(default: false)</overwriteJSON>
 				</configuration>
 				<executions>
 					<execution>
