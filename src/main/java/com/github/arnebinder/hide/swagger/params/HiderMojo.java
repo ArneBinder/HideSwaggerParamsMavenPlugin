@@ -16,9 +16,7 @@ package com.github.arnebinder.hide.swagger.params;
  * limitations under the License.
  */
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -96,26 +94,6 @@ public class HiderMojo
 
         ObjectMapper m = new ObjectMapper();
 
-        JsonNode rootNode;
-        try {
-            rootNode = m.readTree(jsonfile);
-        } catch (IOException e) {
-            throw new MojoExecutionException( "Could not read file: " + jsonfile, e );
-        }
-
-        List<JsonNode> toDelete = rootNode.findParents(excludeKey);
-        for(JsonNode node: toDelete){
-            if(node.get(excludeKey).isTextual()) {
-                String value = node.get(excludeKey).asText();
-                if (value.equals(excludeValue) && node instanceof ObjectNode) {
-                    ObjectNode object = (ObjectNode) node;
-                    object.removeAll();
-
-                }
-            }
-        }
-
-
         Map<String,Object> data;
         try {
             data = m.readValue(jsonfile, Map.class);
@@ -136,7 +114,6 @@ public class HiderMojo
 
         getLog().info( "Hiding succeeded." );
     }
-
 
 
     @SuppressWarnings("unchecked")
