@@ -15,7 +15,9 @@
 				<version>0.1-SNAPSHOT</version>
 				<configuration>
 				  <jsonfile>path/to/swagger-json-file(default: target/doc/swagger-ui/swagger.json)</jsonfile>
-				  <hiddenNameValue>name-of-parameter-to-hide(default: HIDDEN)</hiddenNameValue>
+				  <yamlfile>path/to/yaml/output(default: target/doc/swagger-ui/swagger.yaml)</yamlfile>
+				  <excludeKey>name-of-element-key-to-hide(default: name)</excludeKey>
+				  <excludeValue>name-of-element-value-to-hide(default: HIDDEN)</excludeValue>
 				</configuration>
 				<executions>
 					<execution>

@@ -16,17 +16,26 @@ package com.github.arnebinder.hide.swagger.params;
  * limitations under the License.
  */
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
-import org.apache.maven.plugins.annotations.Parameter;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+//import org.apache.maven.plugins.annotations.Parameter;
 
 import java.io.*;
 import java.util.Iterator;
-import java.util.Scanner;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Created with IntelliJ IDEA.
+ *
+ * @author: arnebinder 16/07/2015
+ */
+
 
 /**
  * Goal which deletes all JSONObjects with key->value pair: name->hiddenNameValue
@@ -50,18 +59,85 @@ public class HiderMojo
     // @Parameter( property = "hideparams.jsonfile", defaultValue = "target/doc/swagger-ui/swagger.json" )
 
     /**
+     * json file containing the swagger code.
+     * @parameter expression="${yamlfile}"
+     *            default-value="target/doc/swagger-ui/swagger.yaml"
+     */
+    private File yamlfile;
+
+    /**
      * value of the name of the element to hide.
-     * @parameter expression="${hiddenNameValue}"
+     * @parameter expression="${excludeKey}"
+     *            default-value="name"
+     */
+    private String excludeKey;
+
+    /**
+     * value of the name of the element to hide.
+     * @parameter expression="${excludeValue}"
      *            default-value="HIDDEN"
      */
-    private String hiddenNameValue;
+    private String excludeValue;
 
     public void execute()
             throws MojoExecutionException
     {
-        getLog().info( "Hide swagger parameters with name \"HIDDEN\"..." );
+
+        getLog().info( "Hide swagger elements with "+excludeKey+" \""+excludeValue+"\"..." );
         getLog().info( "Load swagger JSON descriptions file: "+jsonfile);
-        String content;
+
+        ObjectMapper m = new ObjectMapper();
+
+        // can either use mapper.readTree(source), or mapper.readValue(source, JsonNode.class);
+        JsonNode rootNode;
+        try {
+            rootNode = m.readTree(jsonfile);
+        } catch (IOException e) {
+            throw new MojoExecutionException( "Could not read file: " + jsonfile, e );
+        }
+
+        List<JsonNode> toDelete = rootNode.findParents(excludeKey);
+        //getLog().info( "found hiddden: \n"+toDelete );
+        for(JsonNode node: toDelete){
+            if(node.get(excludeKey).isTextual()) {
+                String value = node.get(excludeKey).asText();
+                if (value.equals(excludeValue) && node instanceof ObjectNode) {
+                    ObjectNode object = (ObjectNode) node;
+                    object.removeAll();
+
+                }
+            }
+        }
+
+        Map<String,Object> data;
+        try {
+            data = m.readValue(jsonfile, Map.class);
+            invoke(data);
+            //m.writeValue(jsonfile, data);
+        } catch (IOException e) {
+            throw new MojoExecutionException( "Could not read file: " + jsonfile, e );
+        }
+
+
+        //getLog().info( "DATA:\n"+data.toString() );
+
+        /*Object bean = null;
+        try {
+            bean = m.treeToValue(rootNode, Object.class);
+        } catch (JsonProcessingException e) {
+            throw new MojoExecutionException( "Could not parse json: " + jsonfile, e );
+        }*/
+        ObjectMapper ym = new ObjectMapper(new YAMLFactory());
+        try {
+            ym.writeValue(yamlfile, data);
+        } catch (IOException e) {
+            throw new MojoExecutionException( "Could not write file: " + yamlfile, e );
+        }
+
+
+        //////////////
+
+        /*String content;
         try {
             Scanner scanner = new Scanner(jsonfile);
             content = scanner.useDelimiter("\\Z").next();
@@ -73,63 +149,72 @@ public class HiderMojo
 
         findHidden(rootObject);
 
-        PrintWriter writer;
+        String prettyJSONString = rootObject.toString(2);
+        PrintWriter jsonWriter;
         try {
-            writer = new PrintWriter(jsonfile, "UTF-8");
+            jsonWriter = new PrintWriter(jsonfile, "UTF-8");
         } catch (FileNotFoundException e) {
             throw new MojoExecutionException( "FileNotFoundException: " + jsonfile, e );
         } catch (UnsupportedEncodingException e) {
             throw new MojoExecutionException( "UnsupportedEncodingException: " + jsonfile, e );
         }
-        rootObject.write(writer);
-        writer.close();
+        jsonWriter.write(prettyJSONString);
+        //rootObject.write(jsonWriter);
+        jsonWriter.close();
+
+        Yaml yaml = new Yaml();
+*/
+        /*
+        // mapping
+        Map<String,Object> map = (Map<String, Object>) yaml.load(prettyJSONString);
+        String output = yaml.dump(map);
+        PrintWriter yamlWriter;
+        try {
+            yamlWriter = new PrintWriter(yamlfile, "UTF-8");
+        } catch (FileNotFoundException e) {
+            throw new MojoExecutionException( "FileNotFoundException: " + yamlfile, e );
+        } catch (UnsupportedEncodingException e) {
+            throw new MojoExecutionException( "UnsupportedEncodingException: " + yamlfile, e );
+        }
+        yamlWriter.write(prettyJSONString);
+        //rootObject.write(jsonWriter);
+        yamlWriter.close();
+        */
+
         getLog().info( "Hiding succeeded." );
     }
 
 
-    private boolean findHidden(JSONObject node){
-        if(node.has("name") && node.get("name").toString().equals(hiddenNameValue)){
-            return true;
-        }else {
-            for ( Iterator<String> it =  node.keys(); it.hasNext(); ){
-                boolean handled = false;
-                String key = it.next();
-                try{
-                    if (findHidden(node.getJSONObject(key))){
-                        //getLog().info( "remove: "+key+" -> "+ node.getJSONObject(key).toString());
-                        node.remove(key);
-                    }
-                    handled = true;
-                }catch (JSONException e){
-                }
-                if(!handled){
-                    try{
-                        findHidden(node.getJSONArray(key));
-                    }catch (JSONException e){
-                    }
-                }
-            }
-            return false;
+    private void invoke( Object object) {
+        Iterator<String> it;
+        if(object instanceof Map) {
+            it = ((Map<String, Object>) object).keySet().iterator();
+        }else if(object instanceof List) {
+            it = ((List) object).iterator();
+        }else{
+            return;
         }
 
-    }
-
-    private void findHidden(JSONArray nodes){
-        for (int i = 0; i < nodes.length(); i++) {
-            boolean handled = false;
-            try{
-                if (findHidden(nodes.getJSONObject(i))){
-                    nodes.remove(i);
-                }
-                handled = true;
-            }catch (JSONException e){
+        while(it.hasNext()){
+            Object itelem = it.next();
+            Object element;
+            if(object instanceof Map){
+                element = ((Map<String, Object>) object).get(itelem);
+            }else{
+                element = itelem;
             }
-            if(!handled){
-                try{
-                    findHidden(nodes.getJSONArray(i));
-                }catch (JSONException e){
+            if(element instanceof Map){
+                Map<String,Object> m = (Map<String,Object>) element;
+                if(m.containsKey(excludeKey) && m.get(excludeKey).equals(excludeValue)){
+                    it.remove();
+                }else{
+                    invoke(element);
                 }
+            }else if(element instanceof List){
+                invoke(element);
             }
         }
     }
+
+
 }
