@@ -16,7 +16,9 @@ package com.github.arnebinder.hide.swagger.params;
  * limitations under the License.
  */
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -84,6 +86,12 @@ public class HiderMojo
      */
     private Boolean overwriteJSON;
 
+    /**
+     * This file will be merged with the created yaml.
+     * @parameter expression="${mergeYamlFile}"
+     */
+    private File mergeYamlFile;
+
     @SuppressWarnings("unchecked")
     public void execute()
             throws MojoExecutionException
@@ -110,6 +118,25 @@ public class HiderMojo
             ym.writeValue(yamlfile, data);
         } catch (IOException e) {
             throw new MojoExecutionException( "Could not write file: " + yamlfile, e );
+        }
+
+        if(mergeYamlFile!=null){
+            getLog().info( "Merge with yaml file: "+mergeYamlFile );
+            JsonNode rootNode;
+            JsonNode updateNode;
+            try {
+                rootNode = ym.readValue(yamlfile, JsonNode.class);
+                updateNode = ym.readValue(mergeYamlFile, JsonNode.class);
+            } catch (IOException e) {
+                throw new MojoExecutionException( "Could not read file: " + mergeYamlFile, e );
+            }
+            JsonNode merged = merge(rootNode, updateNode);
+            try {
+                ym.writeValue(yamlfile, merged);
+            } catch (IOException e) {
+                throw new MojoExecutionException( "Could not write file: " + yamlfile, e );
+            }
+            getLog().info( "Merging succeeded." );
         }
 
         getLog().info( "Hiding succeeded." );
@@ -148,5 +175,29 @@ public class HiderMojo
         }
     }
 
+
+    public static JsonNode merge(JsonNode mainNode, JsonNode updateNode) {
+
+        Iterator<String> fieldNames = updateNode.fieldNames();
+        while (fieldNames.hasNext()) {
+
+            String fieldName = fieldNames.next();
+            JsonNode jsonNode = mainNode.get(fieldName);
+            // if field exists and is an embedded object
+            if (jsonNode != null && jsonNode.isObject()) {
+                merge(jsonNode, updateNode.get(fieldName));
+            }
+            else {
+                if (mainNode instanceof ObjectNode) {
+                    // Overwrite field
+                    JsonNode value = updateNode.get(fieldName);
+                    ((ObjectNode) mainNode).replace(fieldName, value);
+                }
+            }
+
+        }
+
+        return mainNode;
+    }
 
 }
