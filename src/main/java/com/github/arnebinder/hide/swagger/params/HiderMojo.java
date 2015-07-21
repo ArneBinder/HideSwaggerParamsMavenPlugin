@@ -18,6 +18,7 @@ package com.github.arnebinder.hide.swagger.params;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.apache.maven.plugin.AbstractMojo;
@@ -176,27 +177,48 @@ public class HiderMojo
     }
 
 
-    public static JsonNode merge(JsonNode mainNode, JsonNode updateNode) {
+    public static JsonNode merge(JsonNode mainNode, JsonNode updateNode) throws MojoExecutionException {
+        if(updateNode instanceof ArrayNode){
+            if(!(mainNode instanceof ArrayNode)){
+                // error
+                throw new MojoExecutionException( "Could not merge nodes: " + mainNode.toString() + " is not an ArrayNode.");
+            }else {
+                Iterator<JsonNode> updateElements = updateNode.elements();
+                while (updateElements.hasNext()) {
+                    JsonNode updateElement = updateElements.next();
+                    if (updateElement.has("name") && updateElement.get("name") != null && updateElement.get("name").isTextual()) {
+                        String updateName = updateElement.get("name").asText();
 
-        Iterator<String> fieldNames = updateNode.fieldNames();
-        while (fieldNames.hasNext()) {
-
-            String fieldName = fieldNames.next();
-            JsonNode jsonNode = mainNode.get(fieldName);
-            // if field exists and is an embedded object
-            if (jsonNode != null && jsonNode.isObject()) {
-                merge(jsonNode, updateNode.get(fieldName));
-            }
-            else {
-                if (mainNode instanceof ObjectNode) {
-                    // Overwrite field
-                    JsonNode value = updateNode.get(fieldName);
-                    ((ObjectNode) mainNode).replace(fieldName, value);
+                        JsonNode mNode = mainNode.findValue(updateName);
+                        if (mNode == null) {
+                            // add updateElement to mainNode
+                            ((ArrayNode) mainNode).add(updateElement);
+                        }
+                        merge(mNode, updateElement);
+                    }else{
+                        throw new MojoExecutionException( "Could not find key \"name\" in ArrayNode update element: " + updateElement.toString());
+                    }
                 }
             }
+        }else {
+            Iterator<String> fieldNames = updateNode.fieldNames();
+            while (fieldNames.hasNext()) {
 
+                String fieldName = fieldNames.next();
+                JsonNode jsonNode = mainNode.get(fieldName);
+                // if field exists and is an embedded object
+                if (jsonNode != null && jsonNode.isObject()) {
+                    merge(jsonNode, updateNode.get(fieldName));
+                } else {
+                    if (mainNode instanceof ObjectNode) {
+                        // Overwrite field
+                        JsonNode value = updateNode.get(fieldName);
+                        ((ObjectNode) mainNode).replace(fieldName, value);
+                    }
+                }
+
+            }
         }
-
         return mainNode;
     }
 
